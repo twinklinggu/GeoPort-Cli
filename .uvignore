@@ -1,0 +1,41 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Testing
+.pytest_cache/
+coverage.xml
+htmlcov/
+
+# Compiled files
+__pycache__/
+*.py[cod]
+
+# Project specific
+*.spec
+*.exe
+*.dmg
+*.AppImage
+
+# Sensitive files (if any)
+.env
+secrets/
