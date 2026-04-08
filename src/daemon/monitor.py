@@ -17,36 +17,8 @@ def _list_devices_sync():
     """Helper to get list of devices synchronously."""
     return asyncio.run(list_devices())
 
+
 POLL_INTERVAL = 2  # seconds between device checks
-
-
-def is_device_connected() -> bool:
-    """Check if the target device is currently connected."""
-    target_udid = app_context.udid
-    connection_type = app_context.connection_type
-
-    # No target UDID means we're looking for any device
-    if target_udid is None:
-        try:
-            if connection_type == "usb":
-                devices = _list_devices_sync()
-                return len(devices) > 0
-            elif connection_type == "wifi":
-                # For wifi, we already have wifihost set
-                return app_context.wifihost is not None
-        except Exception:
-            return False
-        return False
-
-    # Specific UDID check
-    try:
-        devices = _list_devices_sync()
-        for device in devices:
-            if device.serial == target_udid:
-                return True
-        return False
-    except Exception:
-        return False
 
 
 def find_matching_device() -> Optional[str]:
