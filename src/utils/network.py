@@ -1,14 +1,14 @@
 """Network utilities - port selection, etc."""
 
 import os
+import re
 
+from src.config.settings import home_dir, platform_name
 from src.utils.logging import logger
 
 
 def create_geoport_folder():
     """Create GeoPort folder in user's home directory with proper permissions."""
-    from src.config.settings import home_dir, platform_name
-
     geoport_folder = os.path.join(home_dir, "GeoPort")
 
     if not os.path.exists(geoport_folder):
@@ -29,7 +29,5 @@ def create_geoport_folder():
 
 def remove_ansi_escape_codes(text: str) -> str:
     """Remove ANSI escape codes from text."""
-    import re
-
     ansi_escape = re.compile(r"\x1b[^m]*m")
     return ansi_escape.sub("", text)

@@ -26,6 +26,7 @@ requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 # Import from our modules
 from src.app.context import app_context
 from src.config.settings import APP_VERSION_NUMBER, current_platform, is_windows
+from src.daemon.handler import handle_daemon
 from src.devices.connection import handle_connect
 from src.devices.developer_mode import handle_enable_dev_mode
 from src.devices.discovery import handle_list_devices
@@ -121,6 +122,16 @@ def shutdown_server():
         handle_stop_location()
     except Exception:
         pass
+    # Stop daemon thread if running
+    if app_context.daemon_mode and app_context.daemon_thread is not None:
+        app_context.terminate_daemon_thread = True
+        try:
+            app_context.daemon_thread.join(timeout=5.0)
+        except Exception:
+            pass
+        # Reset daemon state
+        app_context.daemon_mode = False
+        app_context.daemon_thread = None
     stop_set_location_thread()
     stop_tunnel_thread()
     cancel_async_tasks()
@@ -151,7 +162,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True, help="Command")
 
     # list-devices
-    parser_list = subparsers.add_parser(
+    subparsers.add_parser(
         "list-devices", help="List all connected iOS devices (USB + WiFi)"
     )
 
@@ -204,17 +215,38 @@ def main():
     )
 
     # stop-location
-    parser_stop = subparsers.add_parser(
-        "stop-location", help="Stop location simulation"
+    subparsers.add_parser("stop-location", help="Stop location simulation")
+
+    # daemon
+    parser_daemon = subparsers.add_parser(
+        "daemon",
+        help="Daemon mode - continuously monitor and auto-set location on device connection",
+    )
+    parser_daemon.add_argument("--lat", type=float, required=True, help="Latitude")
+    parser_daemon.add_argument("--lon", type=float, required=True, help="Longitude")
+    parser_daemon.add_argument(
+        "--connection-type",
+        required=True,
+        choices=["usb", "wifi"],
+        help="Connection type",
+    )
+    parser_daemon.add_argument(
+        "--wifihost", help="WiFi IP address (required for wifi connection type)"
+    )
+    parser_daemon.add_argument(
+        "--udid", help="Specific device UDID (if not provided, uses first device found)"
+    )
+    parser_daemon.add_argument(
+        "--no-auto-reconnect",
+        action="store_true",
+        help="Disable auto-reconnect on device disconnect",
     )
 
     # clear
-    parser_clear = subparsers.add_parser(
-        "clear", help="Stop all tunnels/threads and clean up exit"
-    )
+    subparsers.add_parser("clear", help="Stop all tunnels/threads and clean up exit")
 
     # version
-    parser_version = subparsers.add_parser("version", help="Show application version")
+    subparsers.add_parser("version", help="Show application version")
 
     args = parser.parse_args()
 
@@ -255,6 +287,9 @@ def main():
         sys.exit(0 if success else 1)
     elif args.command == "stop-location":
         success = handle_stop_location()
+        sys.exit(0 if success else 1)
+    elif args.command == "daemon":
+        success = handle_daemon(args)
         sys.exit(0 if success else 1)
     elif args.command == "clear":
         handle_clear()

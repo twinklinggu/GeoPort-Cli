@@ -1,6 +1,6 @@
 """Fuel price API integration (Australian fuel prices)."""
 
-from typing import Dict, List, Optional
+from typing import Optional
 
 import requests
 
@@ -35,7 +35,7 @@ def get_github_broadcast() -> Optional[str]:
         return None
 
 
-def get_fuel_data(fuel_type: str) -> Optional[Dict]:
+def get_fuel_data(fuel_type: str) -> Optional[dict]:
     """Get fuel prices from the ProjectZeroThree API."""
     try:
         url = "https://projectzerothree.info/api.php?format=json"
@@ -62,6 +62,6 @@ def get_fuel_data(fuel_type: str) -> Optional[Dict]:
         return None
 
 
-def get_fuel_types() -> List[str]:
+def get_fuel_types() -> list[str]:
     """Get list of available fuel types."""
     return ["E10", "U91", "U95", "U98", "Diesel", "LPG"]

@@ -36,6 +36,15 @@ class AppContext:
         # Tunnel state
         self.terminate_tunnel_thread: bool = False
 
+        # Daemon mode state
+        self.daemon_mode: bool = False
+        self.daemon_latitude: Optional[float] = None
+        self.daemon_longitude: Optional[float] = None
+        self.daemon_auto_reconnect: bool = True
+        self.terminate_daemon_thread: bool = False
+        self.daemon_thread: Optional[threading.Thread] = None
+        self.location_active: bool = False
+
         # Error and message state
         self.error_message: Optional[str] = None
         self.sudo_message: str = ""

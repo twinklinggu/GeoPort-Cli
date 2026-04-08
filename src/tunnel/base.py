@@ -1,5 +1,7 @@
 """Base tunnel interface and common functionality."""
 
+import time
+
 
 
 from src.app.context import app_context
@@ -20,7 +22,6 @@ def check_rsd_data() -> bool:
     while attempts < max_attempts:
         if app_context.rsd_host is not None and app_context.rsd_port is not None:
             return True
-        import time
 
         time.sleep(1)
         attempts += 1
