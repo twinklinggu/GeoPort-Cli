@@ -4,12 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**GeoPort** is a desktop application for iOS location spoofing. It's a Flask-based web application that provides a GUI interface to simulate device location on iOS devices via USB or WiFi connections. The application uses `pymobiledevice3` library to communicate with iOS devices through various tunnel protocols (QUIC/TCP).
+**GeoPort** is a desktop application for iOS location spoofing. It's a command-line interface (CLI) application that simulates device location on iOS devices via USB or WiFi connections. The application uses `pymobiledevice3` library to communicate with iOS devices through various tunnel protocols (QUIC/TCP).
 
 **Tech Stack:**
-- Python 3.9+ with Flask web framework
+- Python 3.9+ CLI application
 - pymobiledevice3 for iOS device communication
-- HTML/CSS/JavaScript frontend (Leaflet-based maps)
 - PyInstaller for packaging into standalone executables
 
 **Current Version:** 4.0.2
@@ -122,10 +121,37 @@ uv sync
 ```
 GeoPort/
 ├── src/
-│   ├── main.py              # Flask app + all backend logic (monolithic)
-│   └── templates/
-│       ├── map.html         # Primary UI (map interface)
-│       └── map2.html        # Alternative UI variant
+│   ├── __init__.py
+│   ├── main.py                    # CLI entry point (thin ~250 lines)
+│   ├── config/
+│   │   └── settings.py            # Configuration and constants
+│   ├── devices/
+│   │   ├── __init__.py
+│   │   ├── discovery.py           # Device discovery (USB + WiFi)
+│   │   ├── connection.py          # Connection handling + version checks
+│   │   └── developer_mode.py      # Developer mode enabling
+│   ├── tunnel/
+│   │   ├── __init__.py
+│   │   ├── base.py                # Common tunnel interface
+│   │   ├── quic.py                # QUIC tunnel implementation
+│   │   ├── tcp.py                 # TCP tunnel implementation
+│   │   └── manager.py             # Tunnel lifecycle management
+│   ├── location/
+│   │   ├── __init__.py
+│   │   └── simulation.py           # Location simulation logic
+│   ├── fuel/
+│   │   ├── __init__.py
+│   │   └── prices.py               # Fuel price API integration
+│   ├── app/
+│   │   ├── __init__.py
+│   │   └── context.py              # Application state context (encapsulates globals)
+│   └── utils/
+│       ├── __init__.py
+│       ├── logging.py              # Logging configuration
+│       └── network.py              # Network utilities + folder creation
+├── tests/
+│   ├── conftest.py                 # Pytest configuration
+│   └── test_version_checks.py     # Unit tests for version checking
 ├── images/                  # Documentation images
 ├── README.md                # User-facing documentation
 ├── FAQ.md                   # Troubleshooting guide
@@ -135,45 +161,20 @@ GeoPort/
 └── CLAUDE.md                # This file
 ```
 
-### Backend (src/main.py)
+### Module Organization
 
-The entire backend is a single Flask application file (~1,500 lines) that handles:
+The codebase is organized by domain/concern:
 
-1. **Device Management**
-   - USB device discovery via `list_devices()` from pymobiledevice3
-   - WiFi device discovery via `get_remote_pairing_tunnel_services()`
-   - Connection type handling: USB, Network (WiFi), Manual WiFi
-   - Developer mode checking and enabling via `AmfiService`
+1. **config/** - Application constants, GitHub info, platform detection
+2. **app/context.py** - `AppContext` class that encapsulates all global state (replaces scattered module-level globals)
+3. **devices/** - All device discovery, connection, and developer mode functionality
+4. **tunnel/** - Tunnel management with separate implementations for QUIC (iOS 17+) and TCP (older iOS)
+5. **location/** - Location simulation starting/stopping and thread management
+6. **fuel/** - Fuel price API integration (Australian-specific feature)
+7. **utils/** - Cross-cutting utilities (logging, network/filesystem)
+8. **main.py** - Thin CLI entry point with argparse and signal handling
 
-2. **Tunnel Management**
-   - QUIC tunnels for iOS 17+ (Windows 17.0-17.3.1 special handling)
-   - TCP tunnels for older iOS versions
-   - Separate tunnel threads with async lifecycle management
-   - Global connection mapping: `rsd_data_map[udid][connection_type]`
-
-3. **Location Simulation**
-   - `set_location()` endpoint receives lat/lng from UI
-   - Uses `LocationSimulation` service from pymobiledevice3
-   - Maintains location thread that continuously sets location
-   - `stop_location()` clears simulation
-
-4. **Fuel Mode** (Australian-specific)
-   - Fetches fuel prices from external API: `https://projectzerothree.info/api.php?format=json`
-   - Endpoints: `/api/data/<fuel_type>`, `/api/fuel_types`
-
-5. **Global State**
-   - The app uses many module-level global variables (e.g., `udid`, `lockdown`, `rsd_host`, `rsd_port`, `location`, `connection_type`)
-   - This is a **single-user desktop app** pattern, acceptable but not thread-safe for multi-user scenarios
-
-### Frontend (templates/map.html)
-
-Leaflet-based interactive map with:
-- Device listing and connection UI
-- Map click-to-set location functionality
-- Track creation (draw routes)
-- GPX/GeoJSON import/export
-- Playback speed control (walk/run/ride/drive/custom)
-- Fuel mode interface (Australia)
+All global state is encapsulated in the `app_context` singleton from `src/app/context.py`. This maintains the single-user simplicity while improving organization.
 
 ### iOS Version Handling
 
@@ -214,32 +215,25 @@ uv run black src tests && uv run ruff check src tests && uv run mypy src
 
 ## Testing
 
-The project is configured for testing but **no test suite currently exists**. To add tests:
+The project has a basic test suite established with pytest. To run tests:
 
-1. Create tests for:
-   - Device discovery mocking
-   - Connection type logic (USB/WiFi branching)
-   - Location setting/stopping
-   - API endpoints (`/connect_device`, `/set_location`, etc.)
-   - Version check functions
-   - Fuel API handling
-
-2. Recommended approach:
-   - Use `pytest` for test framework (already configured in `pyproject.toml`)
-   - Mock `pymobiledevice3` calls (unittest.mock or pytest-mock)
-   - Test Flask endpoints with Flask's test client
-   - Aim for 80%+ coverage
-
-3. Test command:
 ```bash
 uv run pytest tests/ -v
 ```
 
-4. Coverage report:
+Coverage report:
 ```bash
 uv run pytest tests/ --cov=src --cov-report=html
 # Open htmlcov/index.html in browser
 ```
+
+Current test coverage: ~12% with tests for core pure functions (version checking). More tests can be added for:
+- Device discovery mocking
+- Connection type logic (USB/WiFi branching)
+- Location setting/stopping
+- Fuel API handling
+
+Aim for 80%+ coverage when adding new features.
 
 ## Code Style and Conventions
 
@@ -256,11 +250,14 @@ uv run pytest tests/ --cov=src --cov-report=html
 
 ## Important Files to Understand
 
-1. **src/main.py** - Start here. Read it fully; it's the entire backend.
-2. **templates/map.html** - Frontend JavaScript interacts with Flask endpoints via fetch API
-3. **FAQ.md** - Common issues, especially Windows firewall configuration and driver requirements
-4. **README.md** - User perspective, feature overview
-5. **pyproject.toml** - All dependency and tool configuration
+1. **src/main.py** - CLI entry point (thin, ~250 lines)
+2. **src/app/context.py** - Application state context (all global state encapsulated here)
+3. **src/devices/** - Device discovery and connection logic
+4. **src/tunnel/** - Tunnel management (QUIC/TCP for different iOS versions)
+5. **src/location/simulation.py** - Core location simulation functionality
+6. **FAQ.md** - Common issues, especially Windows firewall configuration and driver requirements
+7. **README.md** - User perspective, feature overview
+8. **pyproject.toml** - All dependency and tool configuration
 
 ## Known Issues and Quirks
 
@@ -315,11 +312,8 @@ Since there's no formal test suite:
 
 ## Future Improvements (Technical Debt)
 
-1. **No tests**: High-priority; critical device interaction logic needs coverage
-2. **Monolithic main.py**: Should be split into modules (device_manager, tunnel_manager, location_service, routes, etc.)
-3. **Global state**: Should encapsulate in application context or class
-4. **Async/threading mix**: Could unify to asyncio for cleaner concurrency
-5. **No input validation**: Some endpoints trust client data; add validation (especially lat/lng)
-6. **Logging configuration**: Hardcoded DEBUG level; should be configurable
-7. **Error handling**: Some exceptions may leak information; review for user-facing messages
-8. **Type annotations**: Add type hints to `src/main.py` gradually
+1. **Increase test coverage**: Add more tests for device discovery, connection, and location simulation
+2. **Async/threading mix**: Could unify to asyncio for cleaner concurrency
+3. **Add type annotations**: Gradually add type hints to all modules
+4. **Logging configuration**: Hardcoded DEBUG level; should be configurable
+5. **Error handling**: Some exceptions may leak information; review for user-facing messages
