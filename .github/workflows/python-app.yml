@@ -32,7 +32,7 @@ jobs:
         # 假设你的入口脚本是 main.py
         # --onefile 表示打包成单个 exe
         run: |
-          uv run pyinstaller --onefile --clean main.py
+          uv run pyinstaller --onefile --clean src/main.py
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
