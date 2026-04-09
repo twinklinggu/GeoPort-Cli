@@ -153,7 +153,7 @@ def signal_handler(signum, frame):
     shutdown_server()
 
 
-def main():
+async def main():
     """Main entry point - parse arguments and dispatch commands."""
     parser = argparse.ArgumentParser(
         description="GeoPort - iOS Location Simulation CLI",
@@ -274,19 +274,19 @@ def main():
 
     # Dispatch based on command
     if args.command == "list-devices":
-        success = handle_list_devices()
+        success = await handle_list_devices()
         sys.exit(0 if success else 1)
     elif args.command == "connect":
-        success = handle_connect(args)
+        success = await handle_connect(args)
         sys.exit(0 if success else 1)
     elif args.command == "enable-dev-mode":
-        success = handle_enable_dev_mode(args)
+        success = await handle_enable_dev_mode(args)
         sys.exit(0 if success else 1)
     elif args.command == "set-location":
-        success = handle_set_location(args)
+        success = await handle_set_location(args)
         sys.exit(0 if success else 1)
     elif args.command == "stop-location":
-        success = handle_stop_location()
+        success = await handle_stop_location()
         sys.exit(0 if success else 1)
     elif args.command == "daemon":
         success = handle_daemon(args)
@@ -302,4 +302,4 @@ def main():
 if __name__ == "__main__":
     import threading
 
-    main()
+    asyncio.run(main())

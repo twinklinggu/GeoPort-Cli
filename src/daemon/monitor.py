@@ -71,9 +71,9 @@ def handle_device_connected() -> bool:
     connection_type = app_context.connection_type
     try:
         if connection_type == "usb":
-            success = connect_usb()
+            success = asyncio.run(connect_usb())
         elif connection_type == "wifi":
-            success = connect_wifi()
+            success = asyncio.run(connect_wifi())
         else:
             logger.error(f"Daemon: Unknown connection type {connection_type}")
             return False

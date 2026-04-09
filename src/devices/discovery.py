@@ -14,7 +14,7 @@ from src.config.settings import DEFAULT_BONJOUR_TIMEOUT
 from src.utils.logging import logger
 
 
-def get_devices_with_retry(max_attempts: int = 10) -> List:
+async def get_devices_with_retry(max_attempts: int = 10) -> List:
     """Retry device discovery multiple times."""
     from src.devices.connection import version_check
 
@@ -25,7 +25,7 @@ def get_devices_with_retry(max_attempts: int = 10) -> List:
 
     for attempt in range(1, max_attempts + 1):
         try:
-            devices = asyncio.run(get_rsds(DEFAULT_BONJOUR_TIMEOUT))
+            devices = await get_rsds(DEFAULT_BONJOUR_TIMEOUT)
             if devices:
                 return devices
             else:
@@ -42,14 +42,12 @@ def get_devices_with_retry(max_attempts: int = 10) -> List:
     )
 
 
-def get_wifi_with_retry(max_attempts: int = 10):
+async def get_wifi_with_retry(max_attempts: int = 10):
     """Retry WiFi device discovery multiple times."""
     for attempt in range(1, max_attempts + 1):
         try:
             logger.info("Discovering Wifi Devices - This may take a while...")
-            devices = asyncio.run(
-                get_remote_pairing_tunnel_services(DEFAULT_BONJOUR_TIMEOUT)
-            )
+            devices = await get_remote_pairing_tunnel_services(DEFAULT_BONJOUR_TIMEOUT)
 
             if devices:
                 if app_context.udid:
@@ -71,22 +69,20 @@ def get_wifi_with_retry(max_attempts: int = 10):
     raise RuntimeError("No devices found after multiple attempts. Please see the FAQ.")
 
 
-def handle_list_devices() -> bool:
+async def handle_list_devices() -> bool:
     """List all connected devices (USB + WiFi)."""
     try:
         connected_devices = {}
 
         # Retrieve all devices
-        all_devices = asyncio.run(list_devices())
+        all_devices = await list_devices()
         logger.info(f"\n\nRaw Devices:  {all_devices}\n")
 
         if app_context.wifihost:
             udid_parsed = app_context.udid
             logger.warning(f"Wifi requested to {app_context.wifihost}")
             logger.warning(f"udid: {udid_parsed}")
-            lockdown = asyncio.run(
-                create_using_tcp(hostname=app_context.wifihost, identifier=udid_parsed)
-            )
+            lockdown = await create_using_tcp(hostname=app_context.wifihost, identifier=udid_parsed)
 
             info = lockdown.short_info
             logger.warning(f"Wifi Short Info: {info}")
@@ -110,10 +106,8 @@ def handle_list_devices() -> bool:
             device_udid = device.serial
             device_connection_type = device.connection_type
 
-            device_lockdown = asyncio.run(
-                create_using_usbmux(
-                    device_udid, connection_type=device_connection_type, autopair=True
-                )
+            device_lockdown = await create_using_usbmux(
+                device_udid, connection_type=device_connection_type, autopair=True
             )
             info = device_lockdown.short_info
 

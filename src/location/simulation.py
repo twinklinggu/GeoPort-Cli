@@ -94,50 +94,45 @@ def stop_set_location_thread():
     app_context.terminate_location_thread = True
 
 
-def handle_stop_location() -> bool:
+async def handle_stop_location() -> bool:
     """Handle stop-location command from CLI."""
     try:
         stop_set_location_thread()
         logger.info(f"stop set location data:  {app_context.rsd_data}")
 
-        async def clear_location():
-            if app_context.udid in app_context.rsd_data_map:
-                if (
+        if app_context.udid in app_context.rsd_data_map:
+            if (
+                app_context.connection_type
+                in app_context.rsd_data_map[app_context.udid]
+            ):
+                rsd_data = app_context.rsd_data_map[app_context.udid][
                     app_context.connection_type
-                    in app_context.rsd_data_map[app_context.udid]
-                ):
-                    rsd_data = app_context.rsd_data_map[app_context.udid][
-                        app_context.connection_type
-                    ]
-                    app_context.rsd_host = rsd_data["host"]
-                    app_context.rsd_port = rsd_data["port"]
+                ]
+                app_context.rsd_host = rsd_data["host"]
+                app_context.rsd_port = rsd_data["port"]
 
-                if (
-                    app_context.ios_version is not None
-                    and is_major_version_17_or_greater(app_context.ios_version)
-                ):
-                    async with RemoteServiceDiscoveryService(
-                        (app_context.rsd_host, int(app_context.rsd_port))
-                    ) as sp_rsd:
-                        async with DvtProvider(sp_rsd) as dvt:
-                            async with LocationSimulation(dvt) as location_simulation:
-                                await location_simulation.clear()
-                                logger.warning("Location Cleared Successfully")
-                        return "Location cleared successfully"
-
-                elif (
-                    app_context.ios_version is not None
-                    and not is_major_version_17_or_greater(app_context.ios_version)
-                ):
-                    async with DvtProvider(app_context.lockdown) as dvt:
+            if (
+                app_context.ios_version is not None
+                and is_major_version_17_or_greater(app_context.ios_version)
+            ):
+                async with RemoteServiceDiscoveryService(
+                    (app_context.rsd_host, int(app_context.rsd_port))
+                ) as sp_rsd:
+                    async with DvtProvider(sp_rsd) as dvt:
                         async with LocationSimulation(dvt) as location_simulation:
                             await location_simulation.clear()
                             logger.warning("Location Cleared Successfully")
-                        return "Location cleared successfully"
-            return "Location cleared successfully"
+                    return True
 
-        result = asyncio.run(clear_location())
-        logger.info(result)
+            elif (
+                app_context.ios_version is not None
+                and not is_major_version_17_or_greater(app_context.ios_version)
+            ):
+                async with DvtProvider(app_context.lockdown) as dvt:
+                    async with LocationSimulation(dvt) as location_simulation:
+                        await location_simulation.clear()
+                        logger.warning("Location Cleared Successfully")
+                    return True
         return True
     except Exception as e:
         error_message = str(e)
@@ -145,7 +140,7 @@ def handle_stop_location() -> bool:
         return False
 
 
-def handle_set_location(args) -> bool:
+async def handle_set_location(args) -> bool:
     """Handle set-location command from CLI."""
     latitude = args.lat
     longitude = args.lon
@@ -167,11 +162,11 @@ def handle_set_location(args) -> bool:
         if app_context.connection_type.lower() == "wifi":
             from src.devices.connection import connect_wifi
 
-            connected = connect_wifi()
+            connected = await connect_wifi()
         else:
             from src.devices.connection import connect_usb
 
-            connected = connect_usb()
+            connected = await connect_usb()
         if not connected:
             logger.error("Failed to connect to device")
             return False
@@ -193,13 +188,13 @@ def handle_set_location(args) -> bool:
                 time.sleep(1)
         except KeyboardInterrupt:
             logger.info("\nReceived interrupt, stopping location...")
-            handle_stop_location()
+            await handle_stop_location()
         return True
 
     elif not is_major_version_17_or_greater(app_context.ios_version):
         from src.devices.developer_mode import mount_developer_image
 
-        mount_developer_image()
+        await mount_developer_image()
 
         latitude, longitude = map(float, app_context.location.split())
         start_set_location_thread(latitude, longitude)
@@ -210,7 +205,7 @@ def handle_set_location(args) -> bool:
                 time.sleep(1)
         except KeyboardInterrupt:
             logger.info("\nReceived interrupt, stopping location...")
-            handle_stop_location()
+            await handle_stop_location()
         return True
 
     else:

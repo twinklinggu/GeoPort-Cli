@@ -33,19 +33,15 @@ def check_pair_record(udid: str):
     return pair_record
 
 
-def check_developer_mode(udid: str, connection_type: str) -> bool:
+async def check_developer_mode(udid: str, connection_type: str) -> bool:
     """Check if developer mode is enabled on the device."""
     try:
         logger.warning("Check Developer Mode")
 
-        async def check():
-            lockdown = await create_using_usbmux(
-                udid, connection_type=connection_type, autopair=True
-            )
-            result = await lockdown.get_developer_mode_status()
-            return result
-
-        result = asyncio.run(check())
+        lockdown = await create_using_usbmux(
+            udid, connection_type=connection_type, autopair=True
+        )
+        result = await lockdown.get_developer_mode_status()
         logger.info(f"Developer Mode Check result:  {result}")
 
         if result:
@@ -59,7 +55,7 @@ def check_developer_mode(udid: str, connection_type: str) -> bool:
         return False
 
 
-def enable_developer_mode(
+async def enable_developer_mode(
     udid: str, connection_type: str
 ) -> Tuple[bool, Optional[str]]:
     """Enable developer mode on the device."""
@@ -84,21 +80,21 @@ def enable_developer_mode(
         logger.error("No Pair Record Found. USB cable detected. Creating a pair record")
         pass
 
-    async def enable():
-        lockdown = await create_using_usbmux(
-            udid,
-            connection_type=connection_type,
-            autopair=True,
-            pairing_records_cache_folder=home,
-        )
-        await AmfiService(lockdown).enable_developer_mode()
+    lockdown = await create_using_usbmux(
+        udid,
+        connection_type=connection_type,
+        autopair=True,
+        pairing_records_cache_folder=home,
+    )
+    await AmfiService(lockdown).enable_developer_mode()
 
     try:
-        asyncio.run(enable())
         logger.info("Enable complete, mount developer image...")
         from src.devices.connection import mount_developer_image
 
-        mount_developer_image()
+        success, error_msg = await mount_developer_image()
+        if not success:
+            return False, error_msg
 
     except DeviceHasPasscodeSetError:
         error_message = (
@@ -112,14 +108,12 @@ def enable_developer_mode(
     return True, None
 
 
-def mount_developer_image() -> Tuple[bool, Optional[str]]:
+async def mount_developer_image() -> Tuple[bool, Optional[str]]:
     """Mount the developer image after enabling developer mode."""
     from pymobiledevice3.cli.mounter import auto_mount
 
     try:
-        global_lockdown = asyncio.run(
-            create_using_usbmux(app_context.udid, autopair=True)
-        )
+        global_lockdown = await create_using_usbmux(app_context.udid, autopair=True)
         app_context.lockdown = global_lockdown
         logger.info(f"mount lockdown: {app_context.lockdown}")
 
@@ -133,14 +127,14 @@ def mount_developer_image() -> Tuple[bool, Optional[str]]:
         return False, error_message
 
 
-def handle_enable_dev_mode(args) -> bool:
+async def handle_enable_dev_mode(args) -> bool:
     """Handle enable-dev-mode command from CLI."""
     app_context.udid = args.udid
     app_context.connection_type = args.connection_type.capitalize()
     if args.wifihost:
         app_context.wifihost = args.wifihost
 
-    success, error_msg = enable_developer_mode(
+    success, error_msg = await enable_developer_mode(
         app_context.udid, app_context.connection_type
     )
     if success:

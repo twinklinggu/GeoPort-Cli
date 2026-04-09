@@ -1,6 +1,5 @@
 """Device connection handling and version checks."""
 
-import asyncio
 import sys
 
 from pymobiledevice3.lockdown import create_using_usbmux
@@ -57,16 +56,14 @@ def version_check(version_string: str) -> bool:
         return False
 
 
-def connect_usb() -> bool:
+async def connect_usb() -> bool:
     """Connect to a USB device."""
     try:
         app_context.rsd_host = None
         app_context.rsd_port = None
 
         # Get device info to get iOS version
-        temp_lockdown = asyncio.run(
-            create_using_usbmux(app_context.udid, autopair=True)
-        )
+        temp_lockdown = await create_using_usbmux(app_context.udid, autopair=True)
         app_context.ios_version = temp_lockdown.product_version
         logger.info(f"iOS Version: {app_context.ios_version}")
 
@@ -84,7 +81,7 @@ def connect_usb() -> bool:
                     try:
                         from src.devices.discovery import get_devices_with_retry
 
-                        devices = get_devices_with_retry()
+                        devices = await get_devices_with_retry()
                         logger.info(f"Devices: {devices}")
                         rsd = [
                             device
@@ -122,9 +119,7 @@ def connect_usb() -> bool:
             app_context.rsd_data = (app_context.ios_version, app_context.udid)
             logger.info(f"RSD Data: {app_context.rsd_data}")
 
-            global_lockdown = asyncio.run(
-                create_using_usbmux(app_context.udid, autopair=True)
-            )
+            global_lockdown = await create_using_usbmux(app_context.udid, autopair=True)
             app_context.lockdown = global_lockdown
             logger.info(f"Lockdown client = {app_context.lockdown}")
 
@@ -142,7 +137,7 @@ def connect_usb() -> bool:
         logger.warning("Connect Device function completed")
 
 
-def connect_wifi() -> bool:
+async def connect_wifi() -> bool:
     """Connect to a WiFi device."""
     from src.devices.discovery import get_wifi_with_retry
     from src.tunnel.manager import start_wifi_tunnel_thread
@@ -163,7 +158,7 @@ def connect_wifi() -> bool:
             logger.error("No Pair Record Found. Please use a USB Cable to create one")
             return False
 
-        devices = get_wifi_with_retry()
+        devices = await get_wifi_with_retry()
         logger.info(f"Connect Wifi Devices: {devices}")
         logger.info(f"Wifi Address:  {app_context.wifi_address}")
 
@@ -187,7 +182,7 @@ def connect_wifi() -> bool:
         logger.warning("Connect Device function completed")
 
 
-def handle_connect(args) -> bool:
+async def handle_connect(args) -> bool:
     """Handle connect command from CLI."""
     app_context.udid = args.udid
     app_context.connection_type = args.connection_type.capitalize()
@@ -198,9 +193,9 @@ def handle_connect(args) -> bool:
         if not app_context.wifihost:
             logger.error("--wifihost is required for wifi connection")
             return False
-        return connect_wifi()
+        return await connect_wifi()
     elif app_context.connection_type.lower() == "usb":
-        return connect_usb()
+        return await connect_usb()
     else:
         logger.error(f"Invalid connection type: {args.connection_type}")
         return False
